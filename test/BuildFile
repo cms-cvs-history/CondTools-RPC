@@ -1,0 +1,13 @@
+<environment>
+  <use name=DataFormats/MuonDetId>
+  <use name=CondFormats/DataRecord>
+  <use name=CondFormats/RPCObjects>
+  <use name=CondCore/DBCommon>
+  <use name=CondCore/ESSources>
+  <use name=CondCore/IOVService>
+  <use name=CondCore/MetaDataService>
+  <use name=oracle>
+  <lib name=nnz10>
+  <lib name=occi>
+  <bin file="RPCReadOutMapping-O2O.cpp"></bin>
+</environment>
