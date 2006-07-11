@@ -7,7 +7,5 @@
   <use name=CondCore/IOVService>
   <use name=CondCore/MetaDataService>
   <use name=oracle>
-  <lib name=nnz10>
-  <lib name=occi>
   <bin file="RPCReadOutMapping-O2O.cpp"></bin>
 </environment>
