@@ -4,8 +4,8 @@
  * Description:
  *      Class to read directly OMDS DB with OCCI and fill Offline DB
  *
- * $Date: $
- * $Revision: $
+ * $Date: 2006/07/10 09:59:29 $
+ * $Revision: 1.1 $
  * \author Michal Bluj -- INS Warsaw
  *
  */
@@ -247,9 +247,12 @@ public:
 	    ChamberLocationSpec chamber = {1,5,3,"+","ch","IN","+z","Barrel"};
 	    LinkBoardSpec lb(master, iLB, chamber);
 	    for (int iFEB=0; iFEB <= 5; iFEB++) {
-	      FebSpec feb(iFEB,"F",2);
+	      int connector=1;
+	      FebSpec feb(iFEB,connector,"F",2,"F",2);
 	      for (int iStrip=0; iStrip <= 15; iStrip++) {
-		ChamberStripSpec strip = {iStrip, iFEB*16+iStrip};
+		int chamberStrip = iFEB*16+iStrip;
+		int cmsStrip = chamberStrip;
+		ChamberStripSpec strip = {iStrip,chamberStrip,cmsStrip};
 		feb.add(strip);
 	      }
 	      lb.add(feb); 
