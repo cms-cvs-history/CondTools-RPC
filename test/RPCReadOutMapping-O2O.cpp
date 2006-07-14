@@ -4,8 +4,8 @@
  * Description:
  *      Class to read directly OMDS DB with OCCI and fill Offline DB
  *
- * $Date: 2006/07/12 15:36:38 $
- * $Revision: 1.2 $
+ * $Date: 2006/07/14 13:14:57 $
+ * $Revision: 1.3 $
  * \author Michal Bluj -- INS Warsaw
  *
  */
@@ -30,6 +30,8 @@
 #include "CondCore/IOVService/interface/IOV.h"
 #include "CondCore/MetaDataService/interface/MetaData.h"
 
+#include "FWCore/Framework/interface/IOVSyncValue.h"
+
 #include <iostream>
 #include <string>
 #include <sstream>
@@ -43,7 +45,7 @@ class RPCReadOutMapingO2O {
   
 public:
 
-  RPCReadOutMapingO2O(string host, string sid, string user, string pass, int port=1521, string poolDb="sqlite_file:cabling.db", string version="RPCReadOutMapping_v1", int first_run=1, int last_run=1) 
+  RPCReadOutMapingO2O(string host, string sid, string user, string pass, int port=1521, string poolDb="sqlite_file:cabling.db", string version="RPCReadOutMapping_v1", int first_run=0, int last_run=0) 
   { 
     ConnectOnlineDB(host, sid, user, pass, port);
     poolDbCon_=poolDb;
@@ -51,7 +53,7 @@ public:
     version_=version;
     catalog_="file:cablingCatalog.xml";
     
-    first_run>0 ? run1_=first_run : run1_=1;
+    first_run>=0 ? run1_=first_run : run1_=0;
     last_run>run1_ ? run2_=last_run : run2_=run1_;
 
     ::putenv("CORAL_AUTH_USER=konec");
@@ -106,6 +108,11 @@ public:
 
       // Write same mapping for all runs 
       for(int run=run1_; run<=run2_;run++){
+	// Arguments 0 0 mean infinite IOV
+	if (run1_ == 0 && run2_ == 0) {
+	  cout << "Infinite IOV mode" << endl;
+	  run = edm::IOVSyncValue::endOfTime().eventID().run();
+	}
 	session->startUpdateTransaction();
         cout << " Run " << run << endl << "  Write cabling..." << flush;
 	cabTok = mapWriter->markWrite<RPCReadOutMapping>(cabling);  
@@ -115,6 +122,10 @@ public:
 	cout << "  Associate IOV..." << flush;
 	cabIOV->iov.insert(std::make_pair(run, cabTok));
 	cout << " Done." << endl;
+	// End loop on infinite IOV
+	if (run1_ == 0 && run2_ == 0) {
+	  break;
+	}
       }
       session->startUpdateTransaction();
 
@@ -391,7 +402,7 @@ int main(int argc, char* argv[])
 	 << "  host, ID, user, passwd, port identify Online DB (default: port=1521)" << endl
 	 << "  POOL_DB is POOL DB connection string (default: sqlite_file:cabling.db)" << endl
 	 << "  version is a tag of Mapping (default: RPCReadOutMapping_v1)" << endl
-	 << "  first_run, last_run are first and last runs for which Mapping is valid (default: first_run=last_run=1)" << endl
+	 << "  first_run, last_run are first and last runs for which Mapping is valid. Infinitive validity for first_run=last_run=0 (default: first_run=last_run=0)" << endl
 	 << "Warning:" << endl
 	 << "  Positions of parameters cannot be changed!" << endl
 	 << endl;
@@ -404,7 +415,7 @@ int main(int argc, char* argv[])
   int port = 1521;
   string poolCon = "sqlite_file:cabling.db";
   string ver = "RPCReadOutMapping_v1";
-  int run1=1, run2=1;
+  int run1=0, run2=0;
   if(argc > 5 ) port = atoi(argv[5]);
   if(argc > 6 ) poolCon = (string)argv[6];
   if(argc > 7 ) ver = (string)argv[7];

@@ -6,6 +6,7 @@
   <use name=CondCore/ESSources>
   <use name=CondCore/IOVService>
   <use name=CondCore/MetaDataService>
+  <use name=FWCore/Framework>
   <use name=oracle>
   <bin file="RPCReadOutMapping-O2O.cpp"></bin>
 </environment>
