@@ -4,8 +4,8 @@
  * Description:
  *      Class to read directly OMDS DB with OCCI and fill Offline DB
  *
- * $Date: 2006/07/10 09:59:29 $
- * $Revision: 1.1 $
+ * $Date: 2006/07/12 15:36:38 $
+ * $Revision: 1.2 $
  * \author Michal Bluj -- INS Warsaw
  *
  */
@@ -172,7 +172,7 @@ public:
 
     // Get FEDs
     cout << "Getting the FEDs... " << flush;
-    sqlQuery=" SELECT DCCBoardId, DAQId FROM DCCBoard WHERE DCCBoardId>0 ORDER BY DAQId ";
+    sqlQuery=" SELECT DCCBoardId, FEDNumber FROM DCCBoard WHERE DCCBoardId>0 ORDER BY FEDNumber ";
     stmt->setSQL(sqlQuery.c_str());
     ResultSet* rset = stmt->executeQuery();
     std::pair<int,int> tmp_tbl;
@@ -217,44 +217,115 @@ public:
 	cout << "Done." << endl;
 	for(int iLink=0;iLink<theLink.size();iLink++) {
 	  cout << " |    |    |-> Getting the LBs for Link no. "<< theLink[iLink].second << " ... " << flush;
-	  //
-	  // FIXME: dummy mapping for LBs, chambers, FEBs and strips
-	  // 
-	  /*
-	    typedef struct{ bool m, int id, ch;} link_struct; 
-	    std::vector<link_struct> theLB;
-	    LinkConnSpec lc(theLink[iLink].second);
-	    //	  sqlQuery = " SELECT nvl ( MasterId, -1 ) FROM LinkBoard ";
-	    //	  sqlQuery += " WHERE LinkBoardId = ";
-	    //	  sqlQuery += 
-	    sqlQuery = " SELECT name FROM Board ";
-	    sqlQuery += " WHERE BoardId =  ";
-	    sqlQuery += 
+	  std::vector<std::pair<int,string> > theLB;
+	  std::pair<int,string> tmpLB;
+	  // Get master first...
+	  sqlQuery = " SELECT Name ";
+	  sqlQuery += " FROM Board ";
+	  sqlQuery += " WHERE BoardId= ";
+	  sqlQuery +=  IntToString(theLink[iLink].first);
+	  stmt->setSQL(sqlQuery.c_str());
+	  rset = stmt->executeQuery();
+	  while (rset->next()) {
+	    tmpLB.first=theLink[iLink].first;
+	    tmpLB.second=rset->getString(1);
+	    theLB.push_back(tmpLB);
+	  }
+	  // then slaves
+	  sqlQuery = " SELECT LinkBoard.LinkBoardId, Board.Name ";
+	  sqlQuery += " FROM LinkBoard, Board ";
+	  sqlQuery += " WHERE LinkBoard.MasterId= ";
+	  sqlQuery +=  IntToString(theLink[iLink].first);
+	  sqlQuery += " AND Board.BoardId=LinkBoard.LinkBoardId";
+	  sqlQuery += " AND LinkBoard.MasterId<>LinkBoard.LinkBoardId";
+	  sqlQuery += " ORDER BY LinkBoard.LinkBoardId ";
+	  stmt->setSQL(sqlQuery.c_str());
+	  rset = stmt->executeQuery();
+	  while (rset->next()) {
+	    tmpLB.first=rset->getInt(1);
+	    tmpLB.second=rset->getString(2);
+	    theLB.push_back(tmpLB);
+	  }
+	  LinkConnSpec  lc(theLink[iLink].second);
+	  cout << "Done." << endl;
+	  int linkChannel;
+	  for (int iLB=0; iLB<theLB.size(); iLB++) {
+	    linkChannel=atoi(((theLB[iLB].second).substr((theLB[iLB].second).length()-1,1)).c_str());
+	    cout << " |    |    |    |-> Getting the Chambers and FEBs for LB no. "<< linkChannel << " ... " << flush;
+	    bool master = (theLB[iLB].first==theLink[iLink].first);
+	    FEBStruct tmpFEB;
+	    std::vector<FEBStruct> theFEB;
+	    sqlQuery = " SELECT FEBLocation.FEBLocationId,";
+	    sqlQuery += "  FEBLocation.CL_ChamberLocationId,";
+	    sqlQuery += "  FEBConnector.FEBConnectorId,";
+	    sqlQuery += "  FEBLocation.FEBLocalEtaPartition,";
+	    sqlQuery += "  FEBLocation.PosInLocalEtaPartition,";
+	    sqlQuery += "  FEBLocation.FEBCMSEtaPartition,";
+	    sqlQuery += "  FEBLocation.PosInCMSEtaPartition,";
+	    sqlQuery += "  FEBConnector.LinkBoardInputNum ";
+	    sqlQuery += " FROM FEBLocation, FEBConnector "; 
+	    sqlQuery += " WHERE FEBLocation.LB_LinkBoardId= ";
+	    sqlQuery +=  IntToString(theLB[iLB].first);
+	    sqlQuery += "  AND FEBLocation.FEBLocationId=FEBConnector.FL_FEBLocationId"; 
+	    sqlQuery += " ORDER BY FEBLocation.FEBLocationId, FEBConnector.FEBConnectorId";
 	    stmt->setSQL(sqlQuery.c_str());
 	    rset = stmt->executeQuery();
 	    while (rset->next()) {
-	    bool master = false;
-	    int master_id = rset->getInt(1);
-	    if (master_id == -1 || master_id == theLink[iLink].first) { 
-	    master = true;
-	    }
-	    theLB.push_back(tmp_tbl);
-	  */
-	  LinkConnSpec  lc(iLink); 
-	  cout << "Done." << endl;
-	  for (int iLB=0; iLB <=2; iLB++) {
-	    bool master = (iLB==0);
-	    ChamberLocationSpec chamber = {1,5,3,"+","ch","IN","+z","Barrel"};
-	    LinkBoardSpec lb(master, iLB, chamber);
-	    for (int iFEB=0; iFEB <= 5; iFEB++) {
-	      int connector=1;
-	      FebSpec feb(iFEB,connector,"F",2,"F",2);
-	      for (int iStrip=0; iStrip <= 15; iStrip++) {
-		int chamberStrip = iFEB*16+iStrip;
-		int cmsStrip = chamberStrip;
-		ChamberStripSpec strip = {iStrip,chamberStrip,cmsStrip};
-		feb.add(strip);
+	      tmpFEB.febId=rset->getInt(1);
+	      tmpFEB.chamberId=rset->getInt(2);
+	      tmpFEB.connectorId=rset->getInt(3);
+	      tmpFEB.localEtaPart=rset->getString(4);
+	      tmpFEB.posInLocalEtaPart=rset->getInt(5);
+	      tmpFEB.cmsEtaPart=rset->getString(6);
+	      tmpFEB.posInCmsEtaPart=rset->getInt(7);
+	      tmpFEB.lbInputNum=rset->getInt(8);
+	      theFEB.push_back(tmpFEB);
+	      if(theFEB.size()>1){
+		if(theFEB[theFEB.size()-1].chamberId!=theFEB[theFEB.size()-2].chamberId){
+		  cout << "WARNING: FEBs from different chamber in one LB!" << flush;
+		  cout << theFEB.size() << ". (" << theFEB[theFEB.size()-1].febId << "," << theFEB[theFEB.size()-1].chamberId << ") "
+		       << theFEB.size() << ". (" << theFEB[theFEB.size()-2].febId << "," << theFEB[theFEB.size()-2].chamberId << ") " << flush;
+		}
 	      }
+	    }
+	    ChamberLocationSpec chamber;
+	    sqlQuery = "SELECT DiskOrWheel, Layer, Sector, Subsector,";
+	    sqlQuery += " ChamberLocationName,";
+	    sqlQuery += " FEBZOrnt, FEBRadOrnt, BarrelOrEndcap";
+	    sqlQuery += " FROM ChamberLocation "; 
+	    sqlQuery += " WHERE ChamberLocationId= ";
+	    sqlQuery +=  IntToString(theFEB[0].chamberId);
+	    stmt->setSQL(sqlQuery.c_str());
+	    rset = stmt->executeQuery();
+	    while (rset->next()) {
+	      chamber.diskOrWheel=rset->getInt(1);
+	      chamber.layer=rset->getInt(2);
+	      chamber.sector=rset->getInt(3);
+	      chamber.subsector=rset->getString(4);
+	      chamber.chamberLocationName=rset->getString(5);
+	      chamber.febZOrnt=rset->getString(6);
+	      chamber.febZRadOrnt=rset->getString(7);
+	      chamber.barrelOrEndcap=rset->getString(8);
+	    }	    
+	    LinkBoardSpec lb(master, linkChannel, chamber);
+	    cout<< " Done." << endl;
+	    for (int iFEB=0; iFEB<theFEB.size(); iFEB++) {
+	      FebSpec feb(theFEB[iFEB].lbInputNum,theFEB[iFEB].cmsEtaPart,theFEB[iFEB].posInCmsEtaPart,theFEB[iFEB].localEtaPart,theFEB[iFEB].posInLocalEtaPart);
+	      cout << " |    |    |    |    |-> Getting the Strips for FEB no. "<<  theFEB[iFEB].lbInputNum << " ... " << flush;
+	      sqlQuery = "SELECT CablePinNumber, ChamberStripNumber, CmsStripNumber";
+	      sqlQuery += " FROM ChamberStrip "; 
+	      sqlQuery += " WHERE FC_FEBConnectorId= ";
+	      sqlQuery +=  IntToString(theFEB[iFEB].connectorId);
+	      sqlQuery += " ORDER BY CablePinNumber";
+	      stmt->setSQL(sqlQuery.c_str());
+	      rset = stmt->executeQuery();
+	      cout << " Done." << endl;
+	      while (rset->next()) {
+		cout << " |    |    |    |    |    |-> Adding the Strip no. "<< rset->getInt(1) << " ... " << flush;
+		ChamberStripSpec strip = {rset->getInt(1),rset->getInt(2),rset->getInt(3)};
+		feb.add(strip);
+		cout << " Done." << endl;
+	      }	    
 	      lb.add(feb); 
 	    }
 	    lc.add(lb);
@@ -294,6 +365,9 @@ private:
 
     return(snum.str());
   }
+  
+  typedef struct{int febId,chamberId,connectorId,lbInputNum,posInLocalEtaPart,posInCmsEtaPart; string localEtaPart,cmsEtaPart;} FEBStruct;  
+
 };
 
 int main(int argc, char* argv[])
