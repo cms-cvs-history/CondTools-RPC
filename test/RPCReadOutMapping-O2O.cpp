@@ -4,8 +4,8 @@
  * Description:
  *      Class to read directly OMDS DB with OCCI and fill Offline DB
  *
- * $Date: 2006/07/14 16:11:15 $
- * $Revision: 1.4 $
+ * $Date: 2006/07/17 18:49:58 $
+ * $Revision: 1.5 $
  * \author Michal Bluj -- INS Warsaw
  *
  */
@@ -338,12 +338,25 @@ public:
 	      stmt->setSQL(sqlQuery.c_str());
 	      rset = stmt->executeQuery();
 	      cout << " Done." << endl;
+	      unsigned int iStripEntry=0;
 	      while (rset->next()) {
 		cout << " |    |    |    |    |    |-> Adding the Strip no. "<< rset->getInt(1) << " ... " << flush;
 		ChamberStripSpec strip = {rset->getInt(1),rset->getInt(2),rset->getInt(3)};
 		febConnector.add(strip);
 		cout << " Done." << endl;
+		iStripEntry++;
 	      }	    
+	      if(iStripEntry==0){
+		cout << " |    |    |    |    |    |    Zero strips found in DB for FEB no. " << theFEB[iFEB].lbInputNum << flush << endl;
+		cout << " |    |    |    |    |    |    Dummy strip generation ... " << flush;
+		for(unsigned int iStrip=0; iStrip <= 15; iStrip++) {
+		  int chamberStrip =theFEB[iFEB].lbInputNum*16+iStrip;
+		  int cmsStrip = chamberStrip;
+		  ChamberStripSpec strip = {iStrip, chamberStrip, cmsStrip};
+		  febConnector.add(strip);
+		}
+		cout << " Done." << endl;		
+	      }
 	      lb.add(febConnector); 
 	    }
 	    lc.add(lb);
