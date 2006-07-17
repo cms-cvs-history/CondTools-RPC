@@ -1,4 +1,4 @@
-1. To write RPCReadOutMapping into PoolDB (currently sqlite_file) from 
+1. To build RPCReadOutMapping in PoolDB (currently sqlite_file) from 
    OMDS execute:
 
 $ RPCReadOutMapping-O2O oracms.cern.ch OMDS RPC_CONFIGURATION ***** 10121
